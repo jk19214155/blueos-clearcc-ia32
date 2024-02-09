@@ -1,0 +1,918 @@
+	.file	"memory.c"
+	.text
+	.balign 2
+.globl _memtest
+	.def	_memtest;	.scl	2;	.type	32;	.endef
+_memtest:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%esi
+	pushl	%ebx
+	xorl	%esi, %esi
+	call	_io_load_eflags
+	orl	$262144, %eax
+	pushl	%eax
+	call	_io_store_eflags
+	call	_io_load_eflags
+	popl	%edx
+	testl	$262144, %eax
+	je	L2
+	movl	$1, %esi
+L2:
+	andl	$-262145, %eax
+	pushl	%eax
+	call	_io_store_eflags
+	popl	%eax
+	movl	%esi, %eax
+	testb	%al, %al
+	jne	L5
+L3:
+	pushl	12(%ebp)
+	pushl	8(%ebp)
+	call	_memtest_sub
+	popl	%edx
+	movl	%eax, %ebx
+	popl	%ecx
+	movl	%esi, %eax
+	testb	%al, %al
+	jne	L6
+L4:
+	leal	-8(%ebp), %esp
+	movl	%ebx, %eax
+	popl	%ebx
+	popl	%esi
+	popl	%ebp
+	ret
+L6:
+	call	_load_cr0
+	andl	$-1610612737, %eax
+	pushl	%eax
+	call	_store_cr0
+	popl	%eax
+	jmp	L4
+L5:
+	call	_load_cr0
+	orl	$1610612736, %eax
+	pushl	%eax
+	call	_store_cr0
+	popl	%ebx
+	jmp	L3
+	.balign 2
+.globl _memman_init
+	.def	_memman_init;	.scl	2;	.type	32;	.endef
+_memman_init:
+	pushl	%ebp
+	movl	%esp, %ebp
+	movl	8(%ebp), %eax
+	movl	$0, (%eax)
+	movl	$0, 4(%eax)
+	movl	$0, 8(%eax)
+	movl	$0, 12(%eax)
+	popl	%ebp
+	ret
+	.balign 2
+.globl _memman_total
+	.def	_memman_total;	.scl	2;	.type	32;	.endef
+_memman_total:
+	pushl	%ebp
+	xorl	%eax, %eax
+	movl	%esp, %ebp
+	xorl	%edx, %edx
+	pushl	%ebx
+	movl	8(%ebp), %ebx
+	movl	(%ebx), %ecx
+	cmpl	%ecx, %eax
+	jae	L15
+L13:
+	addl	20(%ebx,%edx,8), %eax
+	incl	%edx
+	cmpl	%ecx, %edx
+	jb	L13
+L15:
+	popl	%ebx
+	popl	%ebp
+	ret
+	.balign 2
+.globl _memman_alloc
+	.def	_memman_alloc;	.scl	2;	.type	32;	.endef
+_memman_alloc:
+	pushl	%ebp
+	xorl	%ecx, %ecx
+	movl	%esp, %ebp
+	pushl	%edi
+	pushl	%esi
+	pushl	%ebx
+	movl	12(%ebp), %esi
+	movl	8(%ebp), %ebx
+	movl	(%ebx), %eax
+	cmpl	%eax, %ecx
+	jae	L30
+L28:
+	movl	20(%ebx,%ecx,8), %edx
+	cmpl	%esi, %edx
+	jae	L32
+	incl	%ecx
+	cmpl	%eax, %ecx
+	jb	L28
+L30:
+	xorl	%eax, %eax
+L16:
+	popl	%ebx
+	popl	%esi
+	popl	%edi
+	popl	%ebp
+	ret
+L32:
+	movl	16(%ebx,%ecx,8), %edi
+	leal	(%esi,%edi), %eax
+	movl	%eax, 16(%ebx,%ecx,8)
+	movl	%edx, %eax
+	subl	%esi, %eax
+	movl	%eax, 20(%ebx,%ecx,8)
+	testl	%eax, %eax
+	jne	L22
+	movl	(%ebx), %eax
+	decl	%eax
+	movl	%eax, (%ebx)
+	cmpl	%eax, %ecx
+	jae	L22
+	movl	%eax, %esi
+L27:
+	movl	24(%ebx,%ecx,8), %eax
+	movl	28(%ebx,%ecx,8), %edx
+	movl	%eax, 16(%ebx,%ecx,8)
+	movl	%edx, 20(%ebx,%ecx,8)
+	incl	%ecx
+	cmpl	%esi, %ecx
+	jb	L27
+L22:
+	movl	%edi, %eax
+	jmp	L16
+	.balign 2
+.globl _memman_free
+	.def	_memman_free;	.scl	2;	.type	32;	.endef
+_memman_free:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%edi
+	pushl	%esi
+	movl	8(%ebp), %esi
+	pushl	%ebx
+	xorl	%ebx, %ebx
+	movl	(%esi), %edi
+	cmpl	%edi, %ebx
+	jge	L35
+L39:
+	movl	12(%ebp), %eax
+	cmpl	%eax, 16(%esi,%ebx,8)
+	ja	L35
+	incl	%ebx
+	cmpl	%edi, %ebx
+	jl	L39
+L35:
+	testl	%ebx, %ebx
+	jle	L40
+	movl	12(%esi,%ebx,8), %edx
+	movl	8(%esi,%ebx,8), %eax
+	addl	%edx, %eax
+	cmpl	12(%ebp), %eax
+	je	L63
+L40:
+	cmpl	%edi, %ebx
+	jge	L49
+	movl	12(%ebp), %eax
+	addl	16(%ebp), %eax
+	cmpl	16(%esi,%ebx,8), %eax
+	je	L64
+L49:
+	cmpl	$4089, %edi
+	jg	L51
+	movl	%edi, %ecx
+	cmpl	%ebx, %edi
+	jle	L61
+L56:
+	movl	8(%esi,%ecx,8), %eax
+	movl	12(%esi,%ecx,8), %edx
+	movl	%eax, 16(%esi,%ecx,8)
+	movl	%edx, 20(%esi,%ecx,8)
+	decl	%ecx
+	cmpl	%ebx, %ecx
+	jg	L56
+L61:
+	leal	1(%edi), %eax
+	movl	%eax, (%esi)
+	cmpl	%eax, 4(%esi)
+	jge	L57
+	movl	%eax, 4(%esi)
+L57:
+	movl	12(%ebp), %eax
+	movl	%eax, 16(%esi,%ebx,8)
+	movl	16(%ebp), %eax
+	movl	%eax, 20(%esi,%ebx,8)
+L62:
+	xorl	%eax, %eax
+L33:
+	popl	%ebx
+	popl	%esi
+	popl	%edi
+	popl	%ebp
+	ret
+L51:
+	movl	16(%ebp), %eax
+	incl	12(%esi)
+	addl	%eax, 8(%esi)
+	orl	$-1, %eax
+	jmp	L33
+L64:
+	movl	12(%ebp), %eax
+	movl	%eax, 16(%esi,%ebx,8)
+	movl	16(%ebp), %eax
+	addl	%eax, 20(%esi,%ebx,8)
+	jmp	L62
+L63:
+	addl	16(%ebp), %edx
+	movl	%edx, 12(%esi,%ebx,8)
+	cmpl	(%esi), %ebx
+	jge	L62
+	movl	12(%ebp), %eax
+	addl	16(%ebp), %eax
+	cmpl	16(%esi,%ebx,8), %eax
+	jne	L62
+	addl	20(%esi,%ebx,8), %edx
+	movl	%edx, 12(%esi,%ebx,8)
+	movl	(%esi), %eax
+	decl	%eax
+	movl	%eax, (%esi)
+	cmpl	%eax, %ebx
+	jge	L62
+	movl	%eax, %ecx
+L48:
+	movl	24(%esi,%ebx,8), %eax
+	movl	28(%esi,%ebx,8), %edx
+	movl	%eax, 16(%esi,%ebx,8)
+	movl	%edx, 20(%esi,%ebx,8)
+	incl	%ebx
+	cmpl	%ecx, %ebx
+	jl	L48
+	jmp	L62
+	.balign 2
+.globl _memman_alloc_4k
+	.def	_memman_alloc_4k;	.scl	2;	.type	32;	.endef
+_memman_alloc_4k:
+	pushl	%ebp
+	movl	%esp, %ebp
+	movl	12(%ebp), %eax
+	addl	$4095, %eax
+	andl	$-4096, %eax
+	movl	%eax, 12(%ebp)
+	popl	%ebp
+	jmp	_memman_alloc
+	.balign 2
+.globl _memman_free_4k
+	.def	_memman_free_4k;	.scl	2;	.type	32;	.endef
+_memman_free_4k:
+	pushl	%ebp
+	movl	%esp, %ebp
+	movl	16(%ebp), %eax
+	addl	$4095, %eax
+	andl	$-4096, %eax
+	movl	%eax, 16(%ebp)
+	popl	%ebp
+	jmp	_memman_free
+	.balign 2
+.globl _init_page
+	.def	_init_page;	.scl	2;	.type	32;	.endef
+_init_page:
+	pushl	%ebp
+	movl	$4194304, %edx
+	movl	%esp, %ebp
+	pushl	%ebx
+	movl	8(%ebp), %ebx
+L72:
+	movl	$0, (%edx)
+	addl	$4, %edx
+	cmpl	$8388607, %edx
+	jle	L72
+	movl	$2523136, %edx
+	movl	$4194304, %ecx
+L77:
+	movl	%ecx, %eax
+	addl	$4096, %ecx
+	orl	$7, %eax
+	movl	%eax, (%edx)
+	addl	$4, %edx
+	cmpl	$2527227, %edx
+	jle	L77
+	movl	$2523143, 2527228
+	movl	$2527232, %edx
+	xorl	%ecx, %ecx
+L82:
+	movl	%ecx, %eax
+	addl	$4194304, %ecx
+	orl	$391, %eax
+	movl	%eax, (%edx)
+	addl	$4, %edx
+	cmpl	$2531327, %edx
+	jle	L82
+	movl	$8388608, 8(%ebx)
+	movl	$0, 4(%ebx)
+	movl	$0, (%ebx)
+	movl	$8388608, %edx
+L88:
+	cmpb	$0, (%edx)
+	jne	L85
+	incl	4(%ebx)
+	incl	(%ebx)
+L85:
+	incl	%edx
+	cmpl	$9437183, %edx
+	jle	L88
+	movl	4(%ebx), %eax
+	movl	%eax, 2551812
+	popl	%ebx
+	popl	%ebp
+	ret
+	.balign 2
+.globl _memmam_link_page_32_m
+	.def	_memmam_link_page_32_m;	.scl	2;	.type	32;	.endef
+_memmam_link_page_32_m:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%edi
+	pushl	%esi
+	pushl	%ebx
+	movl	24(%ebp), %edi
+	cmpl	$0, 28(%ebp)
+	jne	L123
+	xorl	%esi, %esi
+	cmpl	%edi, %esi
+	jge	L129
+	movl	16(%ebp), %ebx
+L128:
+	pushl	28(%ebp)
+	pushl	20(%ebp)
+	pushl	%ebx
+	incl	%esi
+	pushl	12(%ebp)
+	pushl	8(%ebp)
+	addl	$4096, %ebx
+	call	_memman_link_page_32
+	addl	$20, %esp
+	cmpl	%edi, %esi
+	jl	L128
+L129:
+	movl	8(%ebp), %edx
+	movl	(%edx), %eax
+	movl	%eax, 2551820
+	movl	20(%ebp), %eax
+	leal	-12(%ebp), %esp
+	popl	%ebx
+	popl	%esi
+	popl	%edi
+	popl	%ebp
+	ret
+L123:
+	testl	%edi, %edi
+	jle	L129
+	xorl	%ebx, %ebx
+	movl	%edi, %esi
+L134:
+	movl	20(%ebp), %eax
+	pushl	28(%ebp)
+	addl	%ebx, %eax
+	pushl	%eax
+	movl	16(%ebp), %eax
+	addl	%ebx, %eax
+	addl	$4096, %ebx
+	pushl	%eax
+	pushl	12(%ebp)
+	pushl	8(%ebp)
+	call	_memman_link_page_32
+	addl	$20, %esp
+	decl	%esi
+	jne	L134
+	jmp	L129
+	.balign 2
+.globl _memman_link_page_32
+	.def	_memman_link_page_32;	.scl	2;	.type	32;	.endef
+_memman_link_page_32:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%esi
+	pushl	%ebx
+	movl	16(%ebp), %eax
+	movl	20(%ebp), %edx
+	movl	%eax, %esi
+	shrl	$10, %eax
+	shrl	$20, %esi
+	andl	$4092, %eax
+	andl	$4092, %esi
+	addl	12(%ebp), %esi
+	movl	(%esi), %esi
+	andl	$-4096, %esi
+	addl	%eax, %esi
+	cmpl	$0, 24(%ebp)
+	je	L140
+L139:
+	movl	%edx, (%esi)
+	movl	%edx, %eax
+	leal	-8(%ebp), %esp
+	popl	%ebx
+	popl	%esi
+	popl	%ebp
+	ret
+L140:
+	pushl	8(%ebp)
+	movl	%edx, %ebx
+	call	_memman_alloc_page_32
+	andl	$4095, %ebx
+	movl	%eax, %edx
+	orl	%ebx, %edx
+	jmp	L139
+	.balign 2
+.globl _memman_unlink_page_32
+	.def	_memman_unlink_page_32;	.scl	2;	.type	32;	.endef
+_memman_unlink_page_32:
+	pushl	%ebp
+	xorl	%eax, %eax
+	movl	%esp, %ebp
+	movl	16(%ebp), %ecx
+	cmpl	$-4097, %ecx
+	ja	L141
+	movl	%ecx, %eax
+	movl	12(%ebp), %edx
+	shrl	$20, %eax
+	shrl	$10, %ecx
+	andl	$4092, %eax
+	andl	$4092, %ecx
+	movl	(%edx,%eax), %eax
+	andl	$-4096, %eax
+	addl	%ecx, %eax
+	movl	(%eax), %edx
+	movl	$0, (%eax)
+	movl	%edx, %eax
+L141:
+	popl	%ebp
+	ret
+	.balign 2
+.globl _pageman_link_page_32_m
+	.def	_pageman_link_page_32_m;	.scl	2;	.type	32;	.endef
+_pageman_link_page_32_m:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%edi
+	pushl	%esi
+	pushl	%ebx
+	movl	20(%ebp), %edi
+	call	_io_cli
+	cmpl	$0, 24(%ebp)
+	jne	L145
+	xorl	%esi, %esi
+	cmpl	%edi, %esi
+	jge	L151
+	movl	12(%ebp), %ebx
+L150:
+	pushl	24(%ebp)
+	pushl	16(%ebp)
+	pushl	%ebx
+	incl	%esi
+	pushl	8(%ebp)
+	addl	$4096, %ebx
+	call	_pageman_link_page_32
+	addl	$16, %esp
+	cmpl	%edi, %esi
+	jl	L150
+L151:
+	movl	8(%ebp), %edx
+	movl	(%edx), %eax
+	movl	%eax, 2551820
+	call	_load_cr3
+	pushl	%eax
+	call	_store_cr3
+	call	_io_sti
+	movl	16(%ebp), %eax
+	leal	-12(%ebp), %esp
+	popl	%ebx
+	popl	%esi
+	popl	%edi
+	popl	%ebp
+	ret
+L145:
+	testl	%edi, %edi
+	jle	L151
+	xorl	%ebx, %ebx
+	movl	%edi, %esi
+L156:
+	movl	16(%ebp), %eax
+	pushl	24(%ebp)
+	addl	%ebx, %eax
+	pushl	%eax
+	movl	12(%ebp), %eax
+	addl	%ebx, %eax
+	addl	$4096, %ebx
+	pushl	%eax
+	pushl	8(%ebp)
+	call	_pageman_link_page_32
+	addl	$16, %esp
+	decl	%esi
+	jne	L156
+	jmp	L151
+	.balign 2
+.globl _pageman_link_page_32
+	.def	_pageman_link_page_32;	.scl	2;	.type	32;	.endef
+_pageman_link_page_32:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%edi
+	pushl	%esi
+	movl	12(%ebp), %edi
+	pushl	%ebx
+	movl	%edi, %ebx
+	movl	16(%ebp), %esi
+	shrl	$20, %ebx
+	andl	$-4, %ebx
+	orl	$-4096, %ebx
+	testb	$1, (%ebx)
+	je	L171
+L160:
+	movl	%edi, %ebx
+	shrl	$10, %ebx
+	andl	$-4, %ebx
+	orl	$-4194304, %ebx
+	cmpl	$0, 20(%ebp)
+	je	L172
+L167:
+	movl	%esi, (%ebx)
+	movl	%esi, %eax
+	leal	-12(%ebp), %esp
+	popl	%ebx
+	popl	%esi
+	popl	%edi
+	popl	%ebp
+	ret
+L172:
+	pushl	8(%ebp)
+	andl	$4095, %esi
+	call	_memman_alloc_page_32
+	orl	%eax, %esi
+	jmp	L167
+L171:
+	pushl	8(%ebp)
+	call	_memman_alloc_page_32
+	orl	$7, %eax
+	movl	%eax, (%ebx)
+	movl	$4095, %eax
+	movl	%edi, %ebx
+	popl	%ecx
+	shrl	$10, %ebx
+	orl	$-4194304, %ebx
+	andl	$-4096, %ebx
+L165:
+	decl	%eax
+	jns	L165
+	movb	$0, (%ebx)
+	jmp	L160
+	.balign 2
+.globl _pageman_unlink_page_32_m
+	.def	_pageman_unlink_page_32_m;	.scl	2;	.type	32;	.endef
+_pageman_unlink_page_32_m:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%edi
+	pushl	%esi
+	pushl	%ebx
+	pushl	%eax
+	movl	16(%ebp), %edi
+	movl	%edi, %esi
+	decl	%esi
+	js	L195
+	movl	%esi, %eax
+	movl	12(%ebp), %edx
+	sall	$12, %eax
+	leal	(%edx,%eax), %ebx
+L178:
+	pushl	20(%ebp)
+	pushl	%ebx
+	subl	$4096, %ebx
+	pushl	8(%ebp)
+	call	_pageman_unlink_page_32
+	addl	$12, %esp
+	decl	%esi
+	jns	L178
+L195:
+	testl	$1, 20(%ebp)
+	je	L179
+	sall	$12, %edi
+	movl	12(%ebp), %edx
+	movl	12(%ebp), %eax
+	leal	13627391(%edi,%edx), %esi
+	andl	$-4194304, %eax
+	andl	$-4194304, %esi
+	movl	%eax, -16(%ebp)
+	cmpl	%eax, %esi
+	jl	L179
+L193:
+	movl	12(%ebp), %eax
+	shrl	$20, %eax
+	andl	$-4, %eax
+	orl	$-4096, %eax
+	testb	$1, (%eax)
+	je	L182
+	movl	12(%ebp), %ebx
+	xorl	%edx, %edx
+	shrl	$10, %ebx
+	andl	$-4, %ebx
+	orl	$-4194304, %ebx
+L190:
+	movl	(%ebx), %eax
+	addl	%edx, %eax
+	andl	$1, %eax
+	jne	L186
+	addl	$4, %edx
+	cmpl	$4095, %edx
+	jle	L190
+L198:
+	movl	12(%ebp), %ebx
+	shrl	$20, %ebx
+	andl	$-4, %ebx
+	orl	$-4096, %ebx
+	pushl	(%ebx)
+	pushl	8(%ebp)
+	call	_memman_free_page_32
+	movl	$0, (%ebx)
+	popl	%ebx
+	popl	%edi
+L182:
+	subl	$4194304, %esi
+	cmpl	-16(%ebp), %esi
+	jge	L193
+L179:
+	movl	8(%ebp), %edx
+	movl	(%edx), %eax
+	movl	%eax, 2551820
+	leal	-12(%ebp), %esp
+	popl	%ebx
+	xorl	%eax, %eax
+	popl	%esi
+	popl	%edi
+	popl	%ebp
+	ret
+L186:
+	cmpl	$4095, %edx
+	jle	L182
+	jmp	L198
+	.balign 2
+.globl _pageman_unlink_page_32
+	.def	_pageman_unlink_page_32;	.scl	2;	.type	32;	.endef
+_pageman_unlink_page_32:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%ebx
+	movl	12(%ebp), %edx
+	cmpl	$-4097, %edx
+	ja	L206
+	movl	%edx, %eax
+	shrl	$20, %eax
+	andl	$-4, %eax
+	orl	$-4096, %eax
+	testb	$1, (%eax)
+	jne	L204
+	xorl	%eax, %eax
+L199:
+	movl	-4(%ebp), %ebx
+	leave
+	ret
+L204:
+	movl	%edx, %eax
+	shrl	$10, %eax
+	andl	$-4, %eax
+	orl	$-4194304, %eax
+	movl	(%eax), %ebx
+	movl	$0, (%eax)
+	testl	$1, 16(%ebp)
+	jne	L207
+L205:
+	movl	%ebx, %eax
+	jmp	L199
+L207:
+	pushl	%ebx
+	pushl	8(%ebp)
+	call	_memman_free_page_32
+	popl	%eax
+	popl	%edx
+	jmp	L205
+L206:
+	call	_io_cli
+L201:
+	jmp	L201
+	.balign 2
+.globl _memman_alloc_page_32
+	.def	_memman_alloc_page_32;	.scl	2;	.type	32;	.endef
+_memman_alloc_page_32:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%ebx
+	xorl	%ebx, %ebx
+	movl	8(%ebp), %eax
+L215:
+	movl	8(%eax), %edx
+	cmpb	$0, (%ebx,%edx)
+	je	L221
+	incl	%ebx
+	cmpl	$1048575, %ebx
+	jle	L215
+	movl	(%eax), %eax
+	movl	%eax, 2551824
+L216:
+	call	_io_cli
+	call	_io_hlt
+	jmp	L216
+L221:
+	movb	$1, (%ebx,%edx)
+	decl	(%eax)
+	call	_task_now
+	testl	%eax, %eax
+	jne	L222
+L214:
+	sall	$12, %ebx
+	movl	%ebx, %eax
+	popl	%ebx
+	popl	%ebp
+	ret
+L222:
+	call	_task_now
+	incl	362(%eax)
+	jmp	L214
+	.balign 2
+.globl _memman_free_page_32_m
+	.def	_memman_free_page_32_m;	.scl	2;	.type	32;	.endef
+_memman_free_page_32_m:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%edi
+	pushl	%esi
+	xorl	%esi, %esi
+	pushl	%ebx
+	movl	8(%ebp), %edi
+	movl	12(%ebp), %ebx
+	shrl	$12, %ebx
+	cmpl	16(%ebp), %esi
+	jge	L232
+L230:
+	movl	8(%edi), %edx
+	leal	(%esi,%ebx), %eax
+	cmpb	$1, (%eax,%edx)
+	je	L233
+L228:
+	leal	(%esi,%ebx), %eax
+	movl	8(%edi), %edx
+	incl	%esi
+	movb	$0, (%eax,%edx)
+	cmpl	16(%ebp), %esi
+	jl	L230
+L232:
+	popl	%ebx
+	xorl	%eax, %eax
+	popl	%esi
+	popl	%edi
+	popl	%ebp
+	ret
+L233:
+	incl	(%edi)
+	call	_task_now
+	testl	%eax, %eax
+	je	L228
+	call	_task_now
+	decl	362(%eax)
+	jmp	L228
+	.balign 2
+.globl _memman_free_page_32
+	.def	_memman_free_page_32;	.scl	2;	.type	32;	.endef
+_memman_free_page_32:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%esi
+	pushl	%ebx
+	movl	8(%ebp), %esi
+	movl	12(%ebp), %ebx
+	shrl	$12, %ebx
+	movl	8(%esi), %eax
+	cmpb	$1, (%ebx,%eax)
+	je	L237
+L235:
+	movl	8(%esi), %eax
+	movb	$0, (%ebx,%eax)
+	movl	(%esi), %eax
+	movl	%eax, 2551820
+	xorl	%eax, %eax
+	popl	%ebx
+	popl	%esi
+	popl	%ebp
+	ret
+L237:
+	incl	(%esi)
+	call	_task_now
+	testl	%eax, %eax
+	je	L235
+	call	_task_now
+	decl	362(%eax)
+	jmp	L235
+	.balign 2
+.globl _memman_copy_page_32_m
+	.def	_memman_copy_page_32_m;	.scl	2;	.type	32;	.endef
+_memman_copy_page_32_m:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%edi
+	pushl	%esi
+	pushl	%ebx
+	pushl	%ebx
+	movl	28(%ebp), %edx
+	testl	%edx, %edx
+	jle	L247
+	movl	24(%ebp), %eax
+	movl	%edx, %ebx
+	movl	%eax, %edi
+	movl	20(%ebp), %eax
+	sall	$12, %edi
+	movl	%eax, %esi
+	sall	$12, %esi
+L245:
+	movl	%esi, %eax
+	movl	12(%ebp), %edx
+	shrl	$20, %eax
+	andl	$4092, %eax
+	movl	(%edx,%eax), %ecx
+	movl	%edi, %eax
+	shrl	$20, %eax
+	movl	%esi, %edx
+	shrl	$10, %edx
+	andl	$-4096, %ecx
+	andl	$4092, %edx
+	andl	$4092, %eax
+	addl	$4096, %esi
+	leal	(%edx,%ecx), %edx
+	movl	%edx, -16(%ebp)
+	movl	16(%ebp), %edx
+	movl	(%edx,%eax), %ecx
+	movl	-16(%ebp), %edx
+	movl	%edi, %eax
+	andl	$-4096, %ecx
+	shrl	$10, %eax
+	movl	(%edx), %edx
+	andl	$4092, %eax
+	addl	$4096, %edi
+	decl	%ebx
+	movl	%edx, (%eax,%ecx)
+	jne	L245
+L247:
+	popl	%ecx
+	popl	%ebx
+	popl	%esi
+	popl	%edi
+	popl	%ebp
+	ret
+	.balign 2
+.globl _inthandler0e
+	.def	_inthandler0e;	.scl	2;	.type	32;	.endef
+_inthandler0e:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%ebx
+	movl	2551808, %ebx
+	movl	12(%ebp), %eax
+	movl	8(%ebp), %edx
+	testb	$1, (%eax)
+	je	L251
+	pushl	$0
+	andl	$-4096, %edx
+	pushl	$7
+	pushl	%edx
+	call	_task_now
+	pushl	120(%eax)
+	pushl	%ebx
+	call	_memman_link_page_32
+	movl	-4(%ebp), %ebx
+	xorl	%eax, %eax
+	leave
+	ret
+L251:
+	call	_io_cli
+	call	_io_hlt
+	jmp	L251
+	.def	_io_hlt;	.scl	2;	.type	32;	.endef
+	.def	_task_now;	.scl	2;	.type	32;	.endef
+	.def	_memman_free_page_32;	.scl	2;	.type	32;	.endef
+	.def	_pageman_unlink_page_32;	.scl	2;	.type	32;	.endef
+	.def	_io_sti;	.scl	2;	.type	32;	.endef
+	.def	_store_cr3;	.scl	2;	.type	32;	.endef
+	.def	_load_cr3;	.scl	2;	.type	32;	.endef
+	.def	_pageman_link_page_32;	.scl	2;	.type	32;	.endef
+	.def	_io_cli;	.scl	2;	.type	32;	.endef
+	.def	_memman_alloc_page_32;	.scl	2;	.type	32;	.endef
+	.def	_memman_link_page_32;	.scl	2;	.type	32;	.endef
+	.def	_memtest_sub;	.scl	2;	.type	32;	.endef
+	.def	_store_cr0;	.scl	2;	.type	32;	.endef
+	.def	_load_cr0;	.scl	2;	.type	32;	.endef
+	.def	_io_store_eflags;	.scl	2;	.type	32;	.endef
+	.def	_io_load_eflags;	.scl	2;	.type	32;	.endef
